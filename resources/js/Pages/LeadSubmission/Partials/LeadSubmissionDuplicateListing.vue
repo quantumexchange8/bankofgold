@@ -453,7 +453,7 @@ const fetchDuplicateItems = async (duplicate_id) => {
                         field="field_name"
                         sortable
                         :header="`${$t('public.field')}`"
-                        class="hidden md:table-cell"
+                        class="hidden md:table-cell capitalize"
                     >
                         <template #body="slotProps">
                             {{ slotProps.data.field_name }}
@@ -485,7 +485,7 @@ const fetchDuplicateItems = async (duplicate_id) => {
                                 <div class="flex items-center gap-3">
                                     <div class="flex flex-col items-start">
                                         <div class="flex flex-wrap items-start gap-x-2">
-                                            <div class="text-sm font-semibold w-auto">
+                                            <div class="text-sm font-semibold w-auto capitalize">
                                                 {{ `${$t('public.field')}: ${slotProps.data.field_name}` }}
                                             </div>
                                             <div class="text-sm font-semibold w-auto">
@@ -493,7 +493,8 @@ const fetchDuplicateItems = async (duplicate_id) => {
                                             </div>
                                         </div>
 
-                                        <div class="text-gray-500 text-xs">
+                                        <!-- <div class="text-gray-500 text-xs"> -->
+                                        <div class="text-sm font-semibold w-auto">
                                             {{ `${$t('public.count')}: ${slotProps.data.count}` }}
                                         </div>
                                     </div>
@@ -614,9 +615,7 @@ const fetchDuplicateItems = async (duplicate_id) => {
                             <template #body="{data}">
                                 <div class="flex items-center gap-3 max-w-60">
                                     <div class="flex flex-col items-start truncate">
-                                        <div class="font-medium">
-                                            {{ `${data.first_name} ${data.surname}` }}
-                                        </div>
+                                        {{ `${data.first_name} ${data.surname}` }}
                                     </div>
                                 </div>
                             </template>
