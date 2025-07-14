@@ -1,0 +1,39 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "./primevue/tailwind.css";
+@import "./base.css";
+@import "tailwindcss/utilities";
+
+@layer components {
+    /* Dialog */
+    .dialog-xs {
+        width: 90vw;
+        max-height: 96vh;
+    }
+
+    .dialog-sm {
+        @media (min-width: 768px) {
+            width: 400px;
+            max-height: 70vh;
+        }
+    }
+
+    .dialog-md {
+        @media (min-width: 768px) {
+            width: 600px;
+            max-height: 80vh;
+        }
+    }
+
+    .dialog-lg {
+        @media (min-width: 768px) {
+            width: 700px;
+            max-height: 90vh;
+
+        }
+        @media (min-width: 1024px) {
+            width: 800px;
+            max-height: 90vh;
+        }
+    }
+}

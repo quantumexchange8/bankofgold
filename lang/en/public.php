@@ -1,0 +1,37 @@
+<?php
+return [
+    "paginator_caption" => "Showing {first} to {last} of {totalRecords} entries",
+    "keyword_search" => "Keyword Search",
+    "filter" => "Filter",
+    "export" => "Export",
+    "clear_all" => "Clear All",
+    "loading" => "Loading",
+    "name" => "Name",
+    "email" => "Email",
+    "date" => "Date",
+    "telephone" => "Telephone",
+    "country" => "Country",
+    "categories" => "Categories",
+    "lead_id" => "Lead ID",
+    "first_name" => "First Name",
+    "surname" => "Surname",
+    "referrer" => "Referrer",
+    "date_added" => "Date Added",
+    "filter_date" => "Filter by Date",
+    "upload_excel_file" => "Upload Excel File",
+    "upload_file" => "Upload File",
+    "selected_file" => "Selected file",
+
+    "lead_submission" => "Lead Submission",
+    'loading_leads_data_caption' => "Loading leads data. Please wait.",
+    'empty_lead_title' => "No Leads Found",
+    'empty_lead_message' => "There are no leads in the listing yet. Once leads are added, you'll see their details here.",
+
+    "lead_listing" => "Lead Listing",
+    "duplicate_listing" => "Duplicate Listing",
+    "field" => "Field",
+    "value" => "Value",
+    "count" => "Count",
+    "duplicate_items" => "Duplicate Items",
+
+];
