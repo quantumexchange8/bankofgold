@@ -451,7 +451,6 @@ const fetchDuplicateItems = async (duplicate_id) => {
                     <!-- <Column selectionMode="multiple" headerStyle="width: 3rem"></Column> -->
                     <Column
                         field="field_name"
-                        sortable
                         :header="`${$t('public.field')}`"
                         class="hidden md:table-cell capitalize"
                     >
@@ -461,7 +460,6 @@ const fetchDuplicateItems = async (duplicate_id) => {
                     </Column>
                     <Column
                         field="duplicate_value"
-                        sortable
                         :header="`${$t('public.value')}`"
                         class="hidden md:table-cell"
                     >
@@ -493,7 +491,6 @@ const fetchDuplicateItems = async (duplicate_id) => {
                                             </div>
                                         </div>
 
-                                        <!-- <div class="text-gray-500 text-xs"> -->
                                         <div class="text-sm font-semibold w-auto">
                                             {{ `${$t('public.count')}: ${slotProps.data.count}` }}
                                         </div>
@@ -560,7 +557,7 @@ const fetchDuplicateItems = async (duplicate_id) => {
                     <div class="self-stretch text-gray-500 text-sm font-medium w-[120px]">
                         {{ $t('public.field') }}
                     </div>
-                    <div class="text-gray-950 text-sm font-medium">
+                    <div class="text-gray-950 text-sm font-medium capitalize">
                         {{ data.field_name }}
                     </div>
                 </div>
