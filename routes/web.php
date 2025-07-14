@@ -6,6 +6,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Redirect;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\LeadSubmissionController;
+use App\Http\Controllers\DuplicateRecordController;
 
 Route::get('/', function () {
     return Redirect::route('login');
@@ -24,10 +25,14 @@ Route::middleware('auth')->group(function () {
     Route::prefix('lead_submission')->group(function () {
         Route::get('/', [LeadSubmissionController::class, 'index'])->name('lead_submission');
         Route::get('/getCoreLeads', [LeadSubmissionController::class, 'getCoreLeads'])->name('lead_submission.getCoreLeads');
-        Route::get('/getDuplicateRecords', [LeadSubmissionController::class, 'getDuplicateRecords'])->name('lead_submission.getDuplicateRecords');
-        Route::get('/getRecordsByDuplicateId', [LeadSubmissionController::class, 'getRecordsByDuplicateId'])->name('lead_submission.getRecordsByDuplicateId');
 
         Route::post('/upload', [LeadSubmissionController::class, 'upload'])->name('lead_submission.upload');
+    });
+
+    Route::prefix('duplicate')->group(function () {
+        Route::get('/getDuplicateRecords', [DuplicateRecordController::class, 'getDuplicateRecords'])->name('duplicate.getDuplicateRecords');
+        Route::get('/getRecordsByDuplicateId', [DuplicateRecordController::class, 'getRecordsByDuplicateId'])->name('duplicate.getRecordsByDuplicateId');
+
     });
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

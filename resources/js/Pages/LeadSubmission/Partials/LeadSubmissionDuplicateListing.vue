@@ -100,7 +100,7 @@ const loadLazyData = (event) => {
                 type: 'core_leads',
             };
 
-            const url = route('lead_submission.getDuplicateRecords', params);
+            const url = route('duplicate.getDuplicateRecords', params);
 
             const response = await fetch(url, {
                 signal: abortController.value.signal,
@@ -159,7 +159,7 @@ const exportReport = async () => {
         type: 'core_leads',
     };
 
-    const url = route('lead_submission.getDuplicateRecords', params);
+    const url = route('duplicate.getDuplicateRecords', params);
 
     try {
         window.location.href = url;
@@ -263,7 +263,7 @@ const clearFilter = () => {
 // const sendEmails = () => {
 //   const coreLeads = selectedFiles.value.map(core_lead => core_lead.id);
 
-//   router.post('/lead_submission/sendEmails', { core_leads: coreLeads }, {
+//   router.post('/duplicate/sendEmails', { core_leads: coreLeads }, {
 //     preserveScroll: true,
 //     onSuccess: () => {
 //     //   console.log(usePage().props); // Now this will include toast!
@@ -299,7 +299,7 @@ const fetchDuplicateItems = async (duplicate_id) => {
             duplicate_id: duplicate_id,
         };
 
-        const url = route('lead_submission.getRecordsByDuplicateId', params);
+        const url = route('duplicate.getRecordsByDuplicateId', params);
         const response = await fetch(url);
         const result = await response.json();
 
