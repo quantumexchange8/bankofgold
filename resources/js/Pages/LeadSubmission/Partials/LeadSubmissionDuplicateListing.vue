@@ -279,6 +279,7 @@ const data = ref({});
 const openDialog = (rowData) => {
     visible.value = true;
     data.value = rowData;
+    duplicateItems.value = [];
     fetchDuplicateItems(rowData.id);
 };
 

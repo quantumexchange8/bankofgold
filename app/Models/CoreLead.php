@@ -9,13 +9,32 @@ class CoreLead extends Model
 {
     use SoftDeletes;
 
-    protected $guarded = ['id'];
-
-    protected $dates = ['date_added', 'deleted_at'];
+    protected $guarded = [];
 
     protected $casts = [
         'is_duplicate' => 'boolean',
-        'duplicate_ids' => 'array',
+        'date_added' => 'date',
     ];
-    
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'id');
+    }
+
+    public function import()
+    {
+        return $this->belongsTo(DataImport::class, 'import_id', 'id');
+    }
+
+    public function duplicateLinks()
+    {
+        return $this->hasMany(DuplicateLink::class, 'related_record_id', 'id')
+                    ->where('related_table', 'core_leads');
+    }
+
+    public function duplicateRecords()
+    {
+        return $this->belongsToMany(DuplicateRecord::class, 'duplicate_links', 'related_record_id', 'duplicate_record_id')
+                    ->wherePivot('related_table', 'core_leads');
+    }
 }

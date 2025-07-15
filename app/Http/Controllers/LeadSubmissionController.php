@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use Carbon\Carbon;
 use Inertia\Inertia;
 use App\Models\CoreLead;
+use App\Models\DataImport;
 use Illuminate\Http\Request;
 use App\Exports\CoreLeadExport;
 use App\Imports\CoreLeadImport;
 use App\Models\DuplicateRecord;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 
 class LeadSubmissionController extends Controller
@@ -98,29 +101,81 @@ class LeadSubmissionController extends Controller
         $request->validate([
             'file' => 'required|file|mimes:csv,xls,xlsx,ods',
         ]);
-
-        // Get the uploaded file
+    
         $file = $request->file('file');
-
+    
         try {
-            // Process the file directly into an array using the LeadsImport class
-            Excel::import(new CoreLeadImport, $file);
+            // Create the import record first
+            $import = DataImport::create([
+                'table_name' => 'core_leads',
+                'file_name'  => $file->getClientOriginalName(),
+                'user_id'    => Auth::id(),
+            ]);
     
-            // After the import process finishes, redirect with a success message
-            // return redirect()->back()->with('success', 'Leads and items uploaded successfully!');
-            return redirect()->back()->with('toast', [
+            // Pass the import ID into the import class
+            $importer = new CoreLeadImport($import->id);
+            Excel::import($importer, $file);
+    
+            // Update with totals
+            $import->update([
+                'total_rows'      => $importer->getTotalRowCount(),
+                'duplicate_count' => $importer->getDuplicateCount(),
+            ]);
+    
+            return back()->with('toast', [
                 'title' => 'File uploaded successfully!',
-                'type' => 'success'
+                'type'  => 'success',
             ]);
-    
-        } catch (\Exception $e) {
-            // If an error occurs during the import, return an error message
-            // return redirect()->back()->with('error', 'An error occurred while uploading the leads: ' . $e->getMessage());
-            return redirect()->back()->with('toast', [
+        } catch (\Throwable $e) {
+            return back()->with('toast', [
                 'title' => 'An error occurred while uploading the file!',
-                'type' => 'error'
+                'type'  => 'error',
             ]);
-
         }
     }
+
+    public function deleteLead(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:core_leads,id',
+        ]);
+
+        DB::transaction(function () use ($request) {
+            $leadId = $request->id;
+
+            // Get duplicate links before deleting the lead
+            $duplicateLinks = DB::table('duplicate_links')
+                ->where('related_table', 'core_leads')
+                ->where('related_record_id', $leadId)
+                ->get();
+
+            // Soft delete the lead
+            CoreLead::where('id', $leadId)->delete();
+
+            // Remove duplicate links
+            DB::table('duplicate_links')
+                ->where('related_table', 'core_leads')
+                ->where('related_record_id', $leadId)
+                ->delete();
+
+            // Decrement duplicate record counts
+            foreach ($duplicateLinks as $link) {
+                DB::table('duplicate_records')
+                    ->where('id', $link->duplicate_record_id)
+                    ->decrement('count');
+
+                // Optionally delete duplicate record if count is now 0
+                DB::table('duplicate_records')
+                    ->where('id', $link->duplicate_record_id)
+                    ->where('count', '<=', 0)
+                    ->delete();
+            }
+        });
+
+        return back()->with('toast', [
+            'title' => 'Lead deleted successfully.',
+            'type' => 'success',
+        ]);
+    }
+
 }

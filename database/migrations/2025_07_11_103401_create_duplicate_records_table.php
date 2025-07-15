@@ -15,6 +15,8 @@ return new class extends Migration {
             $table->unsignedInteger('count')->default(1);
             $table->timestamps();
             $table->softDeletes();
+
+            $table->index(['table_name', 'field_name', 'duplicate_value']);
         });
     }
 

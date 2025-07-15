@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class DuplicateRecord extends Model
 {
     use SoftDeletes;
-    
-    protected $guarded = ['id'];
+
+    protected $guarded = [];
+
+    public function duplicateLinks()
+    {
+        return $this->hasMany(DuplicateLink::class, 'duplicate_record_id', 'id');
+    }
 }

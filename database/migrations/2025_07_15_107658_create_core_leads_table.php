@@ -23,18 +23,22 @@ return new class extends Migration {
             $table->string('email')->nullable();
             $table->string('telephone')->nullable();
             $table->string('country')->nullable();
+
+            // Duplicate & import tracking
             $table->boolean('is_duplicate')->default(false);
-            $table->json('duplicate_ids')->nullable();
+            $table->unsignedBigInteger('import_id')->nullable();
 
             $table->timestamps();
             $table->softDeletes();
 
-            // Foreign key constraint
-            $table->foreign('user_id')
-                  ->references('id')
-                  ->on('users')
-                  ->cascadeOnDelete(); // or ->nullOnDelete(), etc.
-            
+            // Foreign keys
+            $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
+            $table->foreign('import_id')->references('id')->on('data_imports')->nullOnDelete();
+
+            // Indexes
+            $table->index('email');
+            $table->index('telephone');
+            $table->index('is_duplicate');
         });
     }
 
