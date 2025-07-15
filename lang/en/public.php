@@ -33,5 +33,7 @@ return [
     "value" => "Value",
     "count" => "Count",
     "duplicate_items" => "Duplicate Items",
+    "filter_field" => "Filter by Field",
+    "select_field" => "Select Field",
 
 ];

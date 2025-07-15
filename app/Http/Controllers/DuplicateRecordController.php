@@ -23,6 +23,11 @@ class DuplicateRecordController extends Controller
                 $query->where('table_name', $type);
             }
     
+            $field = $data['filters']['field']['value'] ?? null;
+            if ($field) {
+                $query->where('field_name', $field);
+            }
+
             $search = $data['filters']['global']['value'] ?? null;
             if ($search) {
                 $query->where('duplicate_value', 'like', "%$search%");

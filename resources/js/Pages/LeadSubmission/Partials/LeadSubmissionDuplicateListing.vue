@@ -42,19 +42,25 @@ const totalRecords = ref(0);
 const first = ref(0);
 const visible = ref(false);
 
+const fieldOptions = [
+    { label: 'email', value: 'email' },
+    { label: 'telephone', value: 'telephone' },
+];
+
 const filters = ref({
-  global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-//   start_date: { value: null, matchMode: FilterMatchMode.EQUALS },
-//   end_date: { value: null, matchMode: FilterMatchMode.EQUALS },
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+    field: { value: null, matchMode: FilterMatchMode.EQUALS },
+    //   start_date: { value: null, matchMode: FilterMatchMode.EQUALS },
+    //   end_date: { value: null, matchMode: FilterMatchMode.EQUALS },
 });
 
-const initialLoaded = ref(true);
+// const initialLoaded = ref(true);
 
 watch(filters, debounce(() => {
-    if (initialLoaded.value) {
-        initialLoaded.value = false;
-        return;
-    }
+    // if (initialLoaded.value) {
+    //     initialLoaded.value = false;
+    //     return;
+    // }
 
     // const f = filters.value;
 
@@ -250,14 +256,23 @@ watch(
 //     }
 // })
 
+const selectedField = ref(null);
+
+watch(selectedField, (newVal) => {
+    filters.value['field'].value = newVal?.value;
+});
+
 const clearFilter = () => {
     filters.value = {
         global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+        field: { value: null, matchMode: FilterMatchMode.EQUALS },
         // start_date: { value: null, matchMode: FilterMatchMode.EQUALS },
         // end_date: { value: null, matchMode: FilterMatchMode.EQUALS },
     };
 
     // selectedDate.value = [minDate.value, maxDate.value];
+    selectedField.value = null;
+
 };
 
 // const sendEmails = () => {
@@ -382,8 +397,8 @@ const fetchDuplicateItems = async (duplicate_id) => {
                             </div>
                         </div>
                         <div class="w-full flex flex-col gap-3 md:flex-row">
-                            <!-- <div class="w-full md:w-[272px]">
-                                <DatePicker
+                            <div class="w-full md:w-[272px]">
+                                <!-- <DatePicker
                                     v-model="selectedDate"
                                     selectionMode="range"
                                     :manualInput="false"
@@ -401,7 +416,7 @@ const fetchDuplicateItems = async (duplicate_id) => {
                                     @click="clearDate"
                                 >
                                     <IconX size="20" />
-                                </div>
+                                </div> -->
                                 <Button
                                     type="button"
                                     severity="secondary"
@@ -414,7 +429,7 @@ const fetchDuplicateItems = async (duplicate_id) => {
                                         {{ $t('public.filter') }}
                                     </div>
                                 </Button>
-                            </div> -->
+                            </div>
                            <div class="w-full flex flex-col md:flex-row justify-end gap-2">
                                 <!-- <Button
                                     v-if="selectedFiles?.length > 0"
@@ -505,14 +520,14 @@ const fetchDuplicateItems = async (duplicate_id) => {
         </div>
     </div>
 
-    <!-- <Popover ref="op">
+    <Popover ref="op">
         <div class="flex flex-col gap-8 w-72 py-5 px-4">
             <div class="flex flex-col gap-2 items-center self-stretch">
                 <div class="flex self-stretch text-xs text-gray-950 font-semibold">
-                    {{ $t('public.filter_date') }}
+                    {{ $t('public.filter_field') }}
                 </div>
                 <div class="flex flex-col relative gap-1 self-stretch">
-                    <DatePicker
+                    <!-- <DatePicker
                         v-model="selectedDate"
                         selectionMode="range"
                         :manualInput="false"
@@ -529,7 +544,22 @@ const fetchDuplicateItems = async (duplicate_id) => {
                         @click="clearDate"
                     >
                         <IconX size="20" />
-                    </div>
+                    </div> -->
+                    <Select
+                        v-model="selectedField"
+                        :options="fieldOptions"
+                        class="w-full md:w-[272px]"
+                        :placeholder="$t('public.select_field')"
+                    >
+                        <template #option="{ option }">
+                            {{ $t(`public.${option.label}`) }}
+                        </template>
+
+                        <template #value="{ value }">
+                            <span v-if="value">{{ $t(`public.${value.label}`) }}</span>
+                            <span v-else class="text-gray-400">{{ $t('public.select_field') }}</span>
+                        </template>
+                    </Select>
                 </div>
             </div>
 
@@ -544,7 +574,7 @@ const fetchDuplicateItems = async (duplicate_id) => {
                 </Button>
             </div>
         </div>
-    </Popover> -->
+    </Popover>
 
     <Dialog
         v-model:visible="visible"
