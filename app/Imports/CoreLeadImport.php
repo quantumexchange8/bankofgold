@@ -11,6 +11,7 @@ use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use Illuminate\Support\Facades\Log;
 
 class CoreLeadImport implements ToCollection, WithHeadingRow, WithChunkReading
 {
@@ -56,14 +57,14 @@ class CoreLeadImport implements ToCollection, WithHeadingRow, WithChunkReading
     public function collection(Collection $rows): void
     {
         DB::beginTransaction();
-
+    
         try {
             $this->totalRows += $rows->count();
             $now = now();
             $rowsArray = $rows->toArray();
-
+    
             $insertData = [];
-
+    
             foreach ($rowsArray as $row) {
                 $insertData[] = [
                     'user_id'      => $this->userId,
@@ -82,12 +83,18 @@ class CoreLeadImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'updated_at'   => $now,
                 ];
             }
-
+    
             DB::table('core_leads')->insert($insertData);
-
+    
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
+    
+            Log::error('[CoreLeadImport] Insert failed', [
+                'import_id' => $this->importId,
+                'error'     => $e->getMessage(),
+            ]);
+                
             throw $e;
         }
     }

@@ -25,6 +25,9 @@ class ProcessCoreLeadImport implements ShouldQueue
     protected int $importId;
     protected string $filePath;
 
+    // Disable Laravel's queue timeout
+    protected $timeout = null;
+
     public function __construct(int $importId, string $filePath)
     {
         $this->importId = $importId;
@@ -34,6 +37,9 @@ class ProcessCoreLeadImport implements ShouldQueue
 
     public function handle(): void
     {
+        // Disable PHP execution timeout (unlimited time)
+        ini_set('max_execution_time', 0);  // No timeout for PHP script execution
+
         try {
             $importRecord = DataImport::findOrFail($this->importId);
             $format = $this->detectFormat($this->filePath);
