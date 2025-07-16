@@ -185,8 +185,11 @@ class ProcessCoreLeadImport implements ShouldQueue
         if (file_exists($this->filePath)) {
             @unlink($this->filePath);
         }
+    
+        // Add cleanup to remove any partial insert if final failure
+        $this->cleanupImportData($this->importId);
     }
-
+    
     protected function detectFormat(string $filePath): string
     {
         return match (strtolower(pathinfo($filePath, PATHINFO_EXTENSION))) {
