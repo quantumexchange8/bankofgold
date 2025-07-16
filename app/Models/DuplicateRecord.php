@@ -7,8 +7,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DuplicateRecord extends Model
 {
-    use SoftDeletes;
-
     protected $guarded = [];
 
     public function duplicateLinks()

@@ -12,6 +12,7 @@ return new class extends Migration {
 
             // Meta and source info
             $table->unsignedBigInteger('user_id')->nullable();
+            $table->unsignedBigInteger('import_id')->nullable();
             $table->string('lead_id')->nullable();
             $table->string('categories')->nullable();
             $table->date('date_added')->nullable();
@@ -26,7 +27,6 @@ return new class extends Migration {
 
             // Duplicate & import tracking
             $table->boolean('is_duplicate')->default(false);
-            $table->unsignedBigInteger('import_id')->nullable();
 
             $table->timestamps();
             $table->softDeletes();
@@ -38,6 +38,7 @@ return new class extends Migration {
             // Indexes
             $table->index('email');
             $table->index('telephone');
+            $table->index('lead_id');
             $table->index('is_duplicate');
         });
     }

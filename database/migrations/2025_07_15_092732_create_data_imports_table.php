@@ -9,15 +9,26 @@ return new class extends Migration {
     {
         Schema::create('data_imports', function (Blueprint $table) {
             $table->id();
-            $table->string('table_name');       // e.g., 'core_leads'
-            $table->string('file_name');
             $table->unsignedBigInteger('user_id')->nullable();
+
+            // Meta information
+            $table->string('table_name')->nullable();       // e.g., 'core_leads'
+            $table->string('file_name')->nullable();        // Original uploaded filename
+
+            // Processing status and statistics
             $table->unsignedInteger('total_rows')->default(0);
             $table->unsignedInteger('duplicate_count')->default(0);
-            $table->timestamps();
+            $table->string('status')->default('processing'); // processing / completed / failed
 
+            $table->timestamps();
+            $table->softDeletes();
+
+            // Foreign keys
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
+
+            // Indexes
             $table->index('table_name');
+            $table->index('user_id');
         });
     }
 

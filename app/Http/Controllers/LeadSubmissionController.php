@@ -6,11 +6,13 @@ use Carbon\Carbon;
 use Inertia\Inertia;
 use App\Models\CoreLead;
 use App\Models\DataImport;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use App\Exports\CoreLeadExport;
 use App\Imports\CoreLeadImport;
 use App\Models\DuplicateRecord;
 use Illuminate\Support\Facades\DB;
+use App\Jobs\ProcessCoreLeadImport;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -96,42 +98,79 @@ class LeadSubmissionController extends Controller
 
     }
 
+    // public function upload(Request $request)
+    // {
+    //     $request->validate([
+    //         'file' => 'required|file|mimes:csv,xls,xlsx,ods',
+    //     ]);
+    
+    //     $file = $request->file('file');
+    
+    //     try {
+    //         // Create the import record first
+    //         $import = DataImport::create([
+    //             'table_name' => 'core_leads',
+    //             'file_name'  => $file->getClientOriginalName(),
+    //             'user_id'    => Auth::id(),
+    //         ]);
+    
+    //         // Pass the import ID into the import class
+    //         $importer = new CoreLeadImport($import->id);
+    //         Excel::import($importer, $file);
+    
+    //         // Update with totals
+    //         $import->update([
+    //             'total_rows'      => $importer->getTotalRowCount(),
+    //             'duplicate_count' => $importer->getDuplicateCount(),
+    //         ]);
+    
+    //         return back()->with('toast', [
+    //             'title' => 'File uploaded successfully!',
+    //             'type'  => 'success',
+    //         ]);
+    //     } catch (\Throwable $e) {
+    //         return back()->with('toast', [
+    //             'title' => 'An error occurred while uploading the file!',
+    //             'type'  => 'error',
+    //         ]);
+    //     }
+    // }
+
     public function upload(Request $request)
     {
         $request->validate([
             'file' => 'required|file|mimes:csv,xls,xlsx,ods',
         ]);
-    
+
         $file = $request->file('file');
-    
-        try {
-            // Create the import record first
-            $import = DataImport::create([
-                'table_name' => 'core_leads',
-                'file_name'  => $file->getClientOriginalName(),
-                'user_id'    => Auth::id(),
-            ]);
-    
-            // Pass the import ID into the import class
-            $importer = new CoreLeadImport($import->id);
-            Excel::import($importer, $file);
-    
-            // Update with totals
-            $import->update([
-                'total_rows'      => $importer->getTotalRowCount(),
-                'duplicate_count' => $importer->getDuplicateCount(),
-            ]);
-    
-            return back()->with('toast', [
-                'title' => 'File uploaded successfully!',
-                'type'  => 'success',
-            ]);
-        } catch (\Throwable $e) {
-            return back()->with('toast', [
-                'title' => 'An error occurred while uploading the file!',
-                'type'  => 'error',
-            ]);
+        $originalName = $file->getClientOriginalName();
+        $extension = $file->getClientOriginalExtension();
+
+        // 1. Store file somewhere permanent
+        $filename = Str::uuid() . '.' . $extension;
+        $destination = storage_path('app/temp-imports');
+        if (!file_exists($destination)) {
+            mkdir($destination, 0755, true);
         }
+        $fullPath = $destination . '/' . $filename;
+        $file->move($destination, $filename);
+
+        // 2. Create the import record
+        $import = DataImport::create([
+            'table_name' => 'core_leads',
+            'file_name'  => $originalName,
+            'user_id'    => Auth::id(),
+            'status'     => 'processing',
+        ]);
+
+        // 3. Dispatch job
+        ProcessCoreLeadImport::dispatch($import->id, $fullPath);
+
+        // 4. Respond immediately (no waiting)
+        return back()->with('toast', [
+            'title' => 'File is being processed in background!',
+            'type'  => 'success',
+        ]);
     }
 
     public function deleteLead(Request $request)
