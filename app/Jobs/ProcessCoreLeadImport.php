@@ -196,7 +196,29 @@ class ProcessCoreLeadImport implements ShouldQueue
         }
     
         if (!empty($duplicateLeadIds)) {
-            CoreLead::whereIn('id', $duplicateLeadIds)->update(['is_duplicate' => true]);
+            $leadsToUpdate = [];
+        
+            // Group by field+value so we know which duplicates go together
+            $grouped = [];
+        
+            foreach ($rowLinkMap as $leadId => $dups) {
+                foreach ($dups as $info) {
+                    if (!$info['from_current_import']) continue;
+        
+                    $key = $info['field'] . '|' . $info['value'];
+                    $grouped[$key][] = $leadId;
+                }
+            }
+        
+            foreach ($grouped as $group) {
+                // Keep the smallest id (first imported), mark others
+                sort($group);
+                $leadsToUpdate = array_merge($leadsToUpdate, array_slice($group, 1));
+            }
+        
+            if (!empty($leadsToUpdate)) {
+                CoreLead::whereIn('id', $leadsToUpdate)->update(['is_duplicate' => true]);
+            }
         }
     }
     
