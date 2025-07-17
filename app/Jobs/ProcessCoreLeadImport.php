@@ -41,10 +41,10 @@ class ProcessCoreLeadImport implements ShouldQueue
         ini_set('max_execution_time', 0);  // No timeout for PHP script execution
 
         try {
+            $this->cleanupImportData($this->importId);
+
             $importRecord = DataImport::findOrFail($this->importId);
             $format = $this->detectFormat($this->filePath);
-
-            $this->cleanupImportData($this->importId);
 
             $import = new CoreLeadImport($this->importId, $importRecord->user_id);
             Excel::import($import, $this->filePath, null, $format);
@@ -81,157 +81,124 @@ class ProcessCoreLeadImport implements ShouldQueue
     {
         $now = now();
         $fields = ['email', 'telephone'];
-    
-        $duplicates = [];
-        $rowLinkMap = [];
+        $duplicateIdMap = [];
     
         foreach ($fields as $field) {
+            $seen = [];
+    
+            // Gather unique values for current import
             CoreLead::where('import_id', $this->importId)
                 ->whereNotNull($field)
                 ->select('id', $field)
-                ->chunkById(1000, function ($leadsChunk) use ($field, &$duplicates, &$rowLinkMap, $now) {
-                    $values = $leadsChunk->pluck($field)->unique()->filter();
-    
-                    if ($values->isEmpty()) return;
-    
-                    $matchingLeads = CoreLead::whereIn($field, $values)
-                        ->select('id', 'import_id', $field)
-                        ->get()
-                        ->groupBy($field);
-    
-                    foreach ($matchingLeads as $val => $leads) {
-                        if ($leads->count() <= 1) continue;
-    
-                        $duplicates[$field][$val] = $leads->count();
-    
-                        foreach ($leads as $lead) {
-                            $rowLinkMap[$lead->id][] = [
-                                'field' => $field,
-                                'value' => $val,
-                                'from_current_import' => $lead->import_id === $this->importId,
-                            ];
+                ->chunkById(1000, function ($chunk) use (&$seen, $field) {
+                    foreach ($chunk as $lead) {
+                        $val = $lead->$field;
+                        if ($val !== null && $val !== '') {
+                            $seen[$val] = true;
                         }
                     }
                 });
-        }
     
-        $existingRecords = DuplicateRecord::where('table_name', 'core_leads')
-            ->where(function ($query) use ($duplicates) {
-                foreach ($duplicates as $field => $values) {
-                    $query->orWhere(function ($q) use ($field, $values) {
-                        $q->where('field_name', $field)
-                          ->whereIn('duplicate_value', array_keys($values));
-                    });
-                }
-            })->get();
+            $allValues = array_keys($seen);
+            unset($seen); // free memory
     
-        $existingMap = [];
-        foreach ($existingRecords as $rec) {
-            $existingMap[$rec->field_name][$rec->duplicate_value] = $rec;
-        }
+            if (empty($allValues)) continue;
     
-        $newRecords = [];
-        $duplicateIdMap = [];
+            // Query all core_leads with any of the seen values
+            CoreLead::whereIn($field, $allValues)
+                ->select('id', 'import_id', $field)
+                ->whereNotNull($field)
+                ->whereNull('deleted_at')
+                ->chunkById(1000, function ($leads) use (
+                    &$duplicateIdMap, $field, $now
+                ) {
+                    $grouped = [];
     
-        foreach ($duplicates as $field => $values) {
-            foreach ($values as $val => $count) {
-                if (isset($existingMap[$field][$val])) {
-                    DB::table('duplicate_records')->where('id', $existingMap[$field][$val]->id)->increment('count', $count);
-                    $duplicateIdMap[$field][$val] = $existingMap[$field][$val]->id;
-                } else {
-                    $newRecords[] = [
-                        'table_name'      => 'core_leads',
-                        'field_name'      => $field,
-                        'duplicate_value' => $val,
-                        'count'           => $count,
-                        'created_at'      => $now,
-                        'updated_at'      => $now,
-                    ];
-                }
-            }
-        }
-    
-        if (!empty($newRecords)) {
-            DB::table('duplicate_records')->insert($newRecords);
-    
-            $inserted = DuplicateRecord::where('table_name', 'core_leads')
-                ->where(function ($query) use ($newRecords) {
-                    foreach ($newRecords as $record) {
-                        $query->orWhere(function ($q) use ($record) {
-                            $q->where('field_name', $record['field_name'])
-                              ->where('duplicate_value', $record['duplicate_value']);
-                        });
+                    foreach ($leads as $lead) {
+                        $val = $lead->$field;
+                        $grouped[$val][] = [
+                            'id' => $lead->id,
+                            'import_id' => $lead->import_id,
+                        ];
                     }
-                })->get();
     
-            foreach ($inserted as $rec) {
-                $duplicateIdMap[$rec->field_name][$rec->duplicate_value] = $rec->id;
-            }
-        }
+                    $linkInserts = [];
     
-        $linkInserts = [];
-        $duplicateLeadIds = [];
+                    foreach ($grouped as $val => $items) {
+                        if (count($items) <= 1) continue;
     
-        foreach ($rowLinkMap as $leadId => $dups) {
-            foreach ($dups as $info) {
-                $dupId = $duplicateIdMap[$info['field']][$info['value']] ?? null;
-                if ($dupId) {
-                    $linkInserts[] = [
-                        'duplicate_record_id' => $dupId,
-                        'related_table'       => 'core_leads',
-                        'related_record_id'   => $leadId,
-                        'created_at'          => $now,
-                        'updated_at'          => $now,
-                    ];
+                        // Get true total count from DB
+                        $currentCount = CoreLead::where($field, $val)
+                            ->whereNull('deleted_at')
+                            ->count();
     
-                    if ($info['from_current_import']) {
-                        $duplicateLeadIds[] = $leadId;
+                        if (!isset($duplicateIdMap[$field][$val])) {
+                            $existing = DuplicateRecord::where('table_name', 'core_leads')
+                                ->where('field_name', $field)
+                                ->where('duplicate_value', $val)
+                                ->first();
+    
+                            if ($existing) {
+                                $existing->update([
+                                    'count' => $currentCount,
+                                    'updated_at' => $now,
+                                ]);
+                                $duplicateIdMap[$field][$val] = $existing->id;
+                            } else {
+                                $newId = DB::table('duplicate_records')->insertGetId([
+                                    'table_name' => 'core_leads',
+                                    'field_name' => $field,
+                                    'duplicate_value' => $val,
+                                    'count' => $currentCount,
+                                    'created_at' => $now,
+                                    'updated_at' => $now,
+                                ]);
+                                $duplicateIdMap[$field][$val] = $newId;
+                            }
+                        }
+    
+                        $dupId = $duplicateIdMap[$field][$val];
+    
+                        // Find the lowest ID (first)
+                        usort($items, fn($a, $b) => $a['id'] <=> $b['id']);
+                        $firstId = $items[0]['id'];
+                        $toMark = [];
+    
+                        foreach ($items as $lead) {
+                            $linkInserts[] = [
+                                'duplicate_record_id' => $dupId,
+                                'related_table' => 'core_leads',
+                                'related_record_id' => $lead['id'],
+                                'created_at' => $now,
+                                'updated_at' => $now,
+                            ];
+    
+                            if ($lead['import_id'] == $this->importId && $lead['id'] !== $firstId) {
+                                $toMark[] = $lead['id'];
+                            }
+                        }
+    
+                        foreach (array_chunk($toMark, 1000) as $chunked) {
+                            CoreLead::whereIn('id', $chunked)->update(['is_duplicate' => true]);
+                        }
                     }
-                }
-            }
-        }
     
-        if (!empty($linkInserts)) {
-            DB::table('duplicate_links')->insert($linkInserts);
-        }
-    
-        if (!empty($duplicateLeadIds)) {
-            $leadsToUpdate = [];
-        
-            // Group by field+value so we know which duplicates go together
-            $grouped = [];
-        
-            foreach ($rowLinkMap as $leadId => $dups) {
-                foreach ($dups as $info) {
-                    if (!$info['from_current_import']) continue;
-        
-                    $key = $info['field'] . '|' . $info['value'];
-                    $grouped[$key][] = $leadId;
-                }
-            }
-        
-            foreach ($grouped as $group) {
-                // Keep the smallest id (first imported), mark others
-                sort($group);
-                $leadsToUpdate = array_merge($leadsToUpdate, array_slice($group, 1));
-            }
-        
-            if (!empty($leadsToUpdate)) {
-                CoreLead::whereIn('id', $leadsToUpdate)->update(['is_duplicate' => true]);
-            }
+                    foreach (array_chunk($linkInserts, 1000) as $chunk) {
+                        DB::table('duplicate_links')->insertOrIgnore($chunk);
+                    }
+                });
         }
     }
-    
+                        
     public function failed(Throwable $exception): void
     {
         if (file_exists($this->filePath)) {
             @unlink($this->filePath);
         }
-    
-        // Add cleanup to remove any partial insert if final failure
+
         $this->cleanupImportData($this->importId);
     }
-    
+
     protected function detectFormat(string $filePath): string
     {
         return match (strtolower(pathinfo($filePath, PATHINFO_EXTENSION))) {
@@ -274,7 +241,7 @@ class ProcessCoreLeadImport implements ShouldQueue
             CoreLead::whereIn('id', $leadIds)
                 ->chunkById(500, function ($leads) {
                     foreach ($leads as $lead) {
-                        $lead->delete(); // SoftDeletes respected
+                        $lead->delete();
                     }
                 });
         });
