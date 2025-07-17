@@ -159,11 +159,17 @@ class ProcessCoreLeadImport implements ShouldQueue
     
                         $dupId = $duplicateIdMap[$field][$val];
     
-                        // Find the lowest ID (first)
-                        usort($items, fn($a, $b) => $a['id'] <=> $b['id']);
-                        $firstId = $items[0]['id'];
+                        // Fetch the true first ID globally (not just from chunk)
+                        $firstRecord = CoreLead::where($field, $val)
+                            ->whereNull('deleted_at')
+                            ->orderBy('id', 'asc')
+                            ->select('id')
+                            ->limit(1)
+                            ->first();
+
+                        $firstId = $firstRecord?->id;
                         $toMark = [];
-    
+
                         foreach ($items as $lead) {
                             $linkInserts[] = [
                                 'duplicate_record_id' => $dupId,
@@ -172,14 +178,11 @@ class ProcessCoreLeadImport implements ShouldQueue
                                 'created_at' => $now,
                                 'updated_at' => $now,
                             ];
-    
+
+                            // Mark as duplicate if not the true first and belongs to this import
                             if ($lead['import_id'] == $this->importId && $lead['id'] !== $firstId) {
                                 $toMark[] = $lead['id'];
                             }
-                        }
-    
-                        foreach (array_chunk($toMark, 1000) as $chunked) {
-                            CoreLead::whereIn('id', $chunked)->update(['is_duplicate' => true]);
                         }
                     }
     
