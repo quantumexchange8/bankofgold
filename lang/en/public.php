@@ -6,6 +6,7 @@ return [
     "export" => "Export",
     "clear_all" => "Clear All",
     "loading" => "Loading",
+    'loading_data_caption' => "Loading data. Please wait.",
     "name" => "Name",
     "email" => "Email",
     "date" => "Date",

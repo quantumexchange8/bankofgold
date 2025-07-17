@@ -615,8 +615,15 @@ const fetchDuplicateItems = async (duplicate_id) => {
                     <DataTable
                         :value="duplicateItems"
                         dataKey="id"
-                        removable-sort
+                        removableSort
+                        :loading="isLoading"
                     >
+                        <template #loading>
+                            <div class="flex flex-col gap-2 items-center justify-center">
+                                <ProgressSpinner strokeWidth="4" />
+                                <span class="text-sm text-gray-700">{{ $t('public.loading_data_caption') }}</span>
+                            </div>
+                        </template>
                         <Column :header="'#'" class="whitespace-nowrap">
                             <template #body="slotProps">
                                 {{ slotProps.index + 1 }}
