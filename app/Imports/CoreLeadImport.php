@@ -18,7 +18,6 @@ class CoreLeadImport implements ToCollection, WithHeadingRow, WithChunkReading
     protected int $importId;
     protected int $userId;
     protected int $totalRows = 0;
-    protected int $duplicateCount = 0;
 
     public function __construct(int $importId, int $userId)
     {
@@ -29,11 +28,6 @@ class CoreLeadImport implements ToCollection, WithHeadingRow, WithChunkReading
     public function getTotalRowCount(): int
     {
         return $this->totalRows;
-    }
-
-    public function getDuplicateCount(): int
-    {
-        return $this->duplicateCount;
     }
 
     public function chunkSize(): int

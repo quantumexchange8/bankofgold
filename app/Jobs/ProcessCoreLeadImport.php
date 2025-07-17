@@ -50,10 +50,13 @@ class ProcessCoreLeadImport implements ShouldQueue
             Excel::import($import, $this->filePath, null, $format);
 
             $this->handlePostImportDuplicateDetection();
+            $this->markDuplicatesInCoreLeads();
 
+            $duplicateCount = CoreLead::where('import_id', $this->importId)->where('is_duplicate', true)->count();
+        
             DataImport::where('id', $this->importId)->update([
                 'total_rows'      => $import->getTotalRowCount(),
-                'duplicate_count' => $import->getDuplicateCount(),
+                'duplicate_count' => $duplicateCount,
                 'status'          => 'completed',
                 'updated_at'      => now(),
             ]);
@@ -82,10 +85,10 @@ class ProcessCoreLeadImport implements ShouldQueue
         $now = now();
         $fields = ['email', 'telephone'];
         $duplicateIdMap = [];
-    
+
         foreach ($fields as $field) {
             $seen = [];
-    
+
             // Gather unique values for current import
             CoreLead::where('import_id', $this->importId)
                 ->whereNotNull($field)
@@ -98,12 +101,12 @@ class ProcessCoreLeadImport implements ShouldQueue
                         }
                     }
                 });
-    
+
             $allValues = array_keys($seen);
             unset($seen); // free memory
     
             if (empty($allValues)) continue;
-    
+
             // Query all core_leads with any of the seen values
             CoreLead::whereIn($field, $allValues)
                 ->select('id', 'import_id', $field)
@@ -113,7 +116,7 @@ class ProcessCoreLeadImport implements ShouldQueue
                     &$duplicateIdMap, $field, $now
                 ) {
                     $grouped = [];
-    
+
                     foreach ($leads as $lead) {
                         $val = $lead->$field;
                         $grouped[$val][] = [
@@ -121,24 +124,26 @@ class ProcessCoreLeadImport implements ShouldQueue
                             'import_id' => $lead->import_id,
                         ];
                     }
-    
+
+                    $existingRecords = DuplicateRecord::where('table_name', 'core_leads')
+                        ->where('field_name', $field)
+                        ->whereIn('duplicate_value', array_keys($grouped))
+                        ->get()
+                        ->keyBy('duplicate_value');
+
                     $linkInserts = [];
-    
+
                     foreach ($grouped as $val => $items) {
                         if (count($items) <= 1) continue;
-    
+
                         // Get true total count from DB
                         $currentCount = CoreLead::where($field, $val)
                             ->whereNull('deleted_at')
                             ->count();
-    
+
                         if (!isset($duplicateIdMap[$field][$val])) {
-                            $existing = DuplicateRecord::where('table_name', 'core_leads')
-                                ->where('field_name', $field)
-                                ->where('duplicate_value', $val)
-                                ->first();
-    
-                            if ($existing) {
+                            if (isset($existingRecords[$val])) {
+                                $existing = $existingRecords[$val];
                                 $existing->update([
                                     'count' => $currentCount,
                                     'updated_at' => $now,
@@ -156,19 +161,8 @@ class ProcessCoreLeadImport implements ShouldQueue
                                 $duplicateIdMap[$field][$val] = $newId;
                             }
                         }
-    
-                        $dupId = $duplicateIdMap[$field][$val];
-    
-                        // Fetch the true first ID globally (not just from chunk)
-                        $firstRecord = CoreLead::where($field, $val)
-                            ->whereNull('deleted_at')
-                            ->orderBy('id', 'asc')
-                            ->select('id')
-                            ->limit(1)
-                            ->first();
 
-                        $firstId = $firstRecord?->id;
-                        $toMark = [];
+                        $dupId = $duplicateIdMap[$field][$val];
 
                         foreach ($items as $lead) {
                             $linkInserts[] = [
@@ -178,21 +172,51 @@ class ProcessCoreLeadImport implements ShouldQueue
                                 'created_at' => $now,
                                 'updated_at' => $now,
                             ];
-
-                            // Mark as duplicate if not the true first and belongs to this import
-                            if ($lead['import_id'] == $this->importId && $lead['id'] !== $firstId) {
-                                $toMark[] = $lead['id'];
-                            }
                         }
                     }
-    
+
                     foreach (array_chunk($linkInserts, 1000) as $chunk) {
                         DB::table('duplicate_links')->insertOrIgnore($chunk);
                     }
                 });
         }
     }
-                        
+
+    protected function markDuplicatesInCoreLeads(): void
+    {
+        $fields = ['email', 'telephone'];
+    
+        foreach ($fields as $field) {
+            // Step 1: Get all duplicate values for this field
+            $duplicateValues = DuplicateRecord::where('table_name', 'core_leads')
+                ->where('field_name', $field)
+                ->pluck('duplicate_value');
+    
+            if ($duplicateValues->isEmpty()) continue;
+    
+            foreach ($duplicateValues->chunk(500) as $valueChunk) {
+                // Step 2: Get first ID per value across ALL imports
+                $firstIds = CoreLead::whereIn($field, $valueChunk)
+                    ->whereNotNull($field)
+                    ->whereNull('deleted_at')
+                    ->select($field, DB::raw('MIN(id) as first_id'))
+                    ->groupBy($field)
+                    ->pluck('first_id', $field); // [duplicate_value => first_id]
+    
+                if ($firstIds->isEmpty()) continue;
+    
+                // Step 3: In current import, mark any record with same value but not the first one
+                foreach ($firstIds as $value => $firstId) {
+                    CoreLead::where($field, $value)
+                        ->where('import_id', $this->importId) // only mark within this import
+                        ->where('id', '<>', $firstId)         // skip the true first one
+                        ->whereNull('deleted_at')
+                        ->update(['is_duplicate' => true]);
+                }
+            }
+        }
+    }
+        
     public function failed(Throwable $exception): void
     {
         if (file_exists($this->filePath)) {
