@@ -27,6 +27,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/getCoreLeads', [LeadSubmissionController::class, 'getCoreLeads'])->name('lead_submission.getCoreLeads');
 
         Route::post('/upload', [LeadSubmissionController::class, 'upload'])->name('lead_submission.upload');
+        Route::post('/updateStatus', [LeadSubmissionController::class, 'updateStatus'])->name('lead_submission.updateStatus');
     });
 
     Route::prefix('duplicate')->group(function () {

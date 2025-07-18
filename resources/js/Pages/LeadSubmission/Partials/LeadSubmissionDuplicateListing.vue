@@ -336,29 +336,6 @@ const fetchDuplicateItems = async (duplicate_id) => {
         <div
             class="w-full"
         >
-            <!-- <DataTable
-                v-model:first="first"
-                v-model:filters="filters"
-                v-model:selection="selectedFiles"
-                :value="files"
-                :rowsPerPageOptions="[10, 20, 50, 100]"
-                lazy
-                :paginator="files?.length > 0"
-                removableSort
-                paginatorTemplate="RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport"
-                :currentPageReportTemplate="$t('public.paginator_caption')"
-                :rows="10"
-                ref="dt"
-                dataKey="id"
-                selectionMode="multiple"
-                @row-click="(event) => openDialog(event.data)"
-                :totalRecords="totalRecords"
-                :loading="isLoading"
-                @page="onPage($event)"
-                @sort="onSort($event)"
-                @filter="onFilter($event)"
-                :globalFilterFields="['email']"
-            > -->
             <DataTable
                 v-model:first="first"
                 v-model:filters="filters"
@@ -441,7 +418,6 @@ const fetchDuplicateItems = async (duplicate_id) => {
                                 </Button> -->
 
                                <!-- <Button
-                                   variant="primary-outlined"
                                    @click="exportReport"
                                    class="w-full md:w-auto"
                                >
@@ -566,7 +542,6 @@ const fetchDuplicateItems = async (duplicate_id) => {
             <div class="flex w-full">
                 <Button
                     type="button"
-                    variant="primary-outlined"
                     class="flex justify-center w-full"
                     @click="clearFilter()"
                 >

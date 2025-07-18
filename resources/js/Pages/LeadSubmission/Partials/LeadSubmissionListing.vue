@@ -3,13 +3,14 @@ import {onMounted, ref, watch, watchEffect} from "vue";
 import {CalendarIcon, ClockRewindIcon} from "@/Components/Icons/outline.jsx";
 import { generalFormat } from "@/Composables/format.js";
 import debounce from "lodash/debounce.js";
-import { usePage, router} from "@inertiajs/vue3";
+import { usePage, useForm, router} from "@inertiajs/vue3";
 import dayjs from "dayjs";
 import {
     IconCircleXFilled,
     IconSearch,
     IconX,
     IconAdjustments,
+    IconAdjustmentsHorizontal,
     IconCloudDownload,
 } from "@tabler/icons-vue";
 import Empty from "@/Components/Empty.vue";
@@ -31,6 +32,8 @@ import {
     IconField,
 } from "primevue";
 import { FilterMatchMode } from '@primevue/core/api';
+import InputLabel from "@/Components/InputLabel.vue";
+import InputError from "@/Components/InputError.vue";
 
 const exportStatus = ref(false);
 const isLoading = ref(false);
@@ -137,15 +140,14 @@ const onFilter = (event) => {
     loadLazyData(event);
 };
 
-// Optimized exportReport function
 const exportReport = async () => {
     exportStatus.value = true;
     isLoading.value = true;
 
-    lazyParams.value = { ...lazyParams.value, first: event?.first || first.value };
+    lazyParams.value = { ...lazyParams.value, first: event?.first || first.value, };
     lazyParams.value.filters = filters.value;
 
-    const selectedIds = selectedFiles.value.map(core_lead => core_lead.id);
+    const selectedIds = Array.isArray(selectedFiles.value) ? selectedFiles.value.map(core_lead => core_lead.id) : [];
 
     const params = {
         page: JSON.stringify(event?.page + 1),
@@ -154,18 +156,30 @@ const exportReport = async () => {
         include: [],
         lazyEvent: JSON.stringify(lazyParams.value),
         exportStatus: true,
-        selected_ids: selectedIds.length ? selectedIds : null, // only send if not empty
+        selected_ids: selectedIds.length ? selectedIds : null,
+        status: form.status ?? null, // include status from dialog if set
     };
 
-    const url = route('lead_submission.getCoreLeads', params);
-
     try {
+        // Check validation
+        await axios.get(route('lead_submission.getCoreLeads'), { params });
+
+        // Only close dialog if validation passed
+        closeDialog();
+
+        // Then trigger file download
+        const url = route('lead_submission.getCoreLeads', params);
         window.location.href = url;
     } catch (e) {
-        console.error('Error occurred during export:', e);
+        if (e.response?.status === 422) {
+            form.errors = e.response.data.errors;
+        } else {
+            console.error('Error occurred during export:', e);
+        }
     } finally {
         isLoading.value = false;
         exportStatus.value = false;
+        loadLazyData();
     }
 };
 
@@ -199,9 +213,7 @@ const clearFilterGlobal = () => {
     filters.value['global'].value = null;
 }
 
-watch(
-    () => usePage().props.toast,
-    (toast) => {
+watch(() => usePage().props.toast, (toast) => {
         if (toast !== null) {
             first.value = 0;
             loadLazyData();
@@ -258,58 +270,109 @@ const clearFilter = () => {
     selectedDate.value = [minDate.value, maxDate.value];
 };
 
-const sendEmails = () => {
-  const coreLeads = selectedFiles.value.map(core_lead => core_lead.id);
+const form = useForm({
+    ids: [],    // array of IDs (can be one or many)
+    status: '', // new status to apply
+});
 
-  router.post('/lead_submission/sendEmails', { core_leads: coreLeads }, {
-    preserveScroll: true,
-    onSuccess: () => {
-    //   console.log(usePage().props); // Now this will include toast!
-    },
-    onError: (errors) => {
-      console.error('Validation failed:', errors);
-    }
-  });
+const editingRows = ref([]);
+
+const onRowEditInit = (event) => {
+    // Store original data in case user cancels edit
+    event.data._original = { ...event.data };
 };
 
-// // dialog
-// const data = ref({});
-// const openDialog = (rowData) => {
-//     visible.value = true;
-//     data.value = rowData;
-//     fetchLeadItems(rowData.id);
-// };
+const onRowEditSave = async (event) => {
+    const updatedRow = { ...event.newData };
+    delete updatedRow._original;
 
-// const leadItems = ref([]);
-// const totalAmount = ref(0);
+    // Update local table data
+    const index = files.value.findIndex(file => file.id === updatedRow.id);
+    if (index !== -1) {
+        files.value[index].status = updatedRow.status.value;
+    }
 
-// const fetchLeadItems = async (leadId) => {
-//     isLoading.value = true;
+    // Submit to backend using shared useForm
+    form.ids = [updatedRow.id];
+    form.status = updatedRow.status.value;
 
-//     const itemLazyParams = {
-//         ...lazyParams.value,
-//         filters: filters.value,
-//         lead_id: leadId,
-//     };
+    form.post(route('lead_submission.updateStatus'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            form.reset();
+        },
+    });
+};
 
-//     try {
-//         const params = {
-//             lazyEvent: JSON.stringify(itemLazyParams),
-//         };
+const onRowEditCancel = (event) => {
+    if (event.data._original) {
+        // Restore original data
+        Object.assign(event.data, event.data._original);
+        delete event.data._original;
+    }
+};
 
-//         const url = route('lead.getLeadItems', params);
-//         const response = await fetch(url);
-//         const result = await response.json();
+const statusOptions = [
+    { label: 'new', value: 'new' },
+    { label: 'assigned', value: 'assigned' },
+    { label: 'completed', value: 'completed' },
+];
 
-//         leadItems.value = result?.data || [];
-//         totalAmount.value = leadItems.value.reduce((sum, item) => sum + parseFloat(item.amount), 0);
-//     } catch (e) {
-//         console.error('Error fetching lead items:', e);
-//         leadItems.value = [];
-//     } finally {
-//         isLoading.value = false;
-//     }
-// };
+// dialog
+const data = ref({});
+const dialogMode = ref(null);
+const openDialog = (rowData, mode) => {
+    form.reset();
+    visible.value = true;
+    dialogMode.value = mode;
+
+    if (rowData) {
+        data.value = { ...rowData };
+    } else {
+        data.value = { status: null };
+    }
+};
+
+const closeDialog = () => {
+    visible.value = false;
+    form.reset();
+};
+
+const saveEditDialog = () => {
+    const newStatus = data.value.status?.value;
+    const isBulk = !data.value?.id && Array.isArray(selectedFiles.value) && selectedFiles.value.length > 0;
+
+    const targetIds = isBulk ? selectedFiles.value.map(file => file.id) : [data.value.id];
+
+    form.ids = targetIds;
+    form.status = newStatus;
+
+    if (dialogMode.value === 'export') {
+        exportReport();
+        selectedFiles.value = [];
+        return;
+    }
+
+    // Otherwise it's update
+    form.post(route('lead_submission.updateStatus'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            // Update local table data
+            targetIds.forEach(id => {
+                const index = files.value.findIndex(f => f.id === id);
+                if (index !== -1) {
+                    files.value[index].status = newStatus;
+                }
+            });
+
+            if (isBulk) {
+                selectedFiles.value = [];
+            }
+
+            closeDialog();
+        }
+    });
+};
 
 </script>
 
@@ -318,33 +381,11 @@ const sendEmails = () => {
         <div
             class="w-full"
         >
-            <!-- <DataTable
-                v-model:selection="selectedFiles"
-                :value="files"
-                :rowsPerPageOptions="[10, 20, 50, 100]"
-                lazy
-                :paginator="files?.length > 0"
-                removableSort
-                paginatorTemplate="RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport"
-                :currentPageReportTemplate="$t('public.paginator_caption')"
-                :first="first"
-                :page="page"
-                :rows="10"
-                ref="dt"
-                dataKey="id"
-                selectionMode="multiple"
-                @row-click="(event) => openDialog(event.data)"
-                :totalRecords="totalRecords"
-                :loading="isLoading"
-                @page="onPage($event)"
-                @sort="onSort($event)"
-                @filter="onFilter($event)"
-                :globalFilterFields="['email']"
-            > -->
             <DataTable
                 v-model:first="first"
                 v-model:filters="filters"
                 v-model:selection="selectedFiles"
+                v-model:editingRows="editingRows"
                 :value="files"
                 :rowsPerPageOptions="[10, 20, 50, 100]"
                 lazy
@@ -362,6 +403,10 @@ const sendEmails = () => {
                 @sort="onSort($event)"
                 @filter="onFilter($event)"
                 :globalFilterFields="['email']"
+                editMode="row"
+                @row-edit-save="onRowEditSave"
+                @row-edit-init="onRowEditInit"
+                @row-edit-cancel="onRowEditCancel"
             >
                 <template #header>
                     <div class="flex flex-col md:flex-row gap-3 items-center self-stretch pb-3 md:pb-5">
@@ -413,19 +458,18 @@ const sendEmails = () => {
                                 </Button>
                             </div>
                            <div class="w-full flex flex-col md:flex-row justify-end gap-2">
-                                <!-- <Button
+                                <Button
                                     v-if="selectedFiles?.length > 0"
                                     variant="primary-flat"
                                     :disabled="selectedFiles?.length === 0"
-                                    @click="sendEmails()"
+                                    @click="openDialog(null, 'update');"
                                 >
-                                    {{ $t('public.send_email') }}
-                                </Button> -->
+                                    {{ $t('public.update_status') }}
+                                </Button>
 
                                <Button
-                                   variant="primary-outlined"
-                                   @click="exportReport"
-                                   class="w-full md:w-auto"
+                                    @click="openDialog(null, 'export');"
+                                    class="w-full md:w-auto"
                                >
                                    {{ $t('public.export') }}
                                </Button>
@@ -546,6 +590,44 @@ const sendEmails = () => {
                             {{ slotProps.data.referrer }}
                         </template>
                     </Column>
+                    <Column
+                        field="status"
+                        :header="$t('public.status')"
+                        class="hidden md:table-cell"
+                    >
+                        <template #body="{ data }">
+                            {{ $t(`public.${data.status}`) }}
+                        </template>
+                        <template #editor="{ data, field }">
+                            <Select
+                                v-model="data[field]"
+                                :options="statusOptions"
+                                class="w-full"
+                            >
+                                <template #option="{ option }">
+                                    {{ $t(`public.${option.label}`) }}
+                                </template>
+
+                                <template #value="{ value }">
+                                    <span v-if="value">{{ $t(`public.${value.label ? value.label : value}`) }}</span>
+                                    <span v-else class="text-gray-400">{{ $t('public.select_status') }}</span>
+                                </template>
+                            </Select>
+                        </template>
+                    </Column>
+                    <Column rowEditor class="hidden md:table-cell min-w-[120px]" bodyStyle="text-align: center">
+                        <template #roweditoriniticon>
+                            <Button
+                                type="button"
+                                severity="secondary"
+                                variant="text"
+                                rounded
+                                class="shrink-0"
+                            >
+                                <IconAdjustmentsHorizontal size="16" stroke-width="1.25"/>
+                            </Button>
+                        </template>
+                    </Column>
 
                     <Column class="md:hidden">
                         <template #body="slotProps">
@@ -570,6 +652,18 @@ const sendEmails = () => {
                                         <div class="text-gray-500 text-xs">
                                             {{ `${$t('public.date_added')}: ${dayjs(slotProps.data.date_added).format('YYYY/MM/DD')}` }}
                                         </div>
+                                        <Button
+                                            type="button"
+                                            severity="secondary"
+                                            variant="text"
+                                            rounded
+                                            size="small"
+                                            class="shrink-0"
+                                            @click="openDialog(slotProps.data, 'update')"
+                                        >
+                                            <IconAdjustmentsHorizontal size="16" stroke-width="1.25"/>
+                                        </Button>
+
                                     </div>
                                 </div>
                             </div>
@@ -611,7 +705,6 @@ const sendEmails = () => {
             <div class="flex w-full">
                 <Button
                     type="button"
-                    variant="primary-outlined"
                     class="flex justify-center w-full"
                     @click="clearFilter()"
                 >
@@ -621,80 +714,43 @@ const sendEmails = () => {
         </div>
     </Popover>
 
-    <!-- <Dialog
+    <Dialog
         v-model:visible="visible"
         modal
-        :header="$t('public.lead')"
+        :header="$t('public.update_status')"
         class="dialog-xs md:dialog-lg lg:w-auto"
     >
-        <div class="w-full flex flex-col gap-5">
-            <div class="w-full flex flex-col gap-2">
-                <div class="w-full flex flex-col md:flex-row gap-5">
-                    <div class="w-full flex justify-start gap-1">
-                        <span class="whitespace-nowrap py-2">{{ $t('public.bill_to') }}:</span>
-                        <div class="flex flex-col px-3 py-2 text-gray-700">
-                            <span class="font-bold">{{ data?.company_name }}</span>
-                            <span class="uppercase">{{ [data?.address1, data?.address2].filter(Boolean).join(', ') }},</span>
-                            <span class="uppercase">{{ [data?.postcode, data?.city, data?.state, data?.country].filter(Boolean).join(', ') }}.</span>
-                            <span class="uppercase">{{ $t('public.tel') }}: {{ data?.phone }}</span>
-                        </div>
-                    </div>
+        <div class="flex flex-col gap-4">
+            <div>
+                <InputLabel for="status" :value="$t('public.status')" :invalid="!!form.errors.status" />
+                <Select
+                    v-model="data.status"
+                    :options="statusOptions"
+                    class="w-full"
+                    :invalid="!!form.errors.status"
+                >
+                    <template #option="{ option }">
+                        {{ $t(`public.${option.label}`) }}
+                    </template>
 
-                    <div class="w-full flex md:justify-end gap-1">
-                        <div class="w-full md:w-auto flex-col px-3 py-2 text-gray-700">
-                            <div class="flex gap-2">
-                                <span class="min-w-[120px] whitespace-nowrap">{{ $t('public.no') }}.</span>
-                                <span class="whitespace-nowrap font-bold">{{ data?.doc_no }}</span>
-                            </div>
-                            <div class="flex gap-2">
-                                <span class="min-w-[120px] whitespace-nowrap">{{ $t('public.date') }}</span>
-                                <span class="whitespace-nowrap">{{ data?.doc_date }}</span>
-                            </div>
-                            <div class="flex gap-2">
-                                <span class="min-w-[120px] whitespace-nowrap">{{ $t('public.terms') }}</span>
-                                <span class="whitespace-nowrap">{{ data?.terms }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    <template #value="{ value }">
+                        <span v-if="value">{{ $t(`public.${value.label ? value.label : value}`) }}</span>
+                        <span v-else class="text-gray-400">{{ $t('public.select_status') }}</span>
+                    </template>
+                </Select>
+                <InputError :message="Array.isArray(form.errors.status) ? form.errors.status.join(' ') : form.errors.status" />
             </div>
 
-            <div class="w-full flex flex-col gap-1">
-                <div class="w-full flex flex-col border-y border-gray-300">
-                    <DataTable
-                        :value="leadItems"
-                        dataKey="id"
-                        removable-sort
-                    >
-                        <Column :header="'#'" class="whitespace-nowrap">
-                            <template #body="slotProps">
-                                {{ slotProps.index + 1 }}
-                            </template>
-                        </Column>
-                        <Column field="item_code" :header="$t('public.item_code')" class="whitespace-nowrap"/>
-                        <Column field="description_dtl" :header="$t('public.description')" class="whitespace-nowrap"/>
-                        <Column field="qty" :header="$t('public.qty')" class="whitespace-nowrap uppercase"/>
-                        <Column field="uom" :header="$t('public.uom')" class="whitespace-nowrap uppercase"/>
-                        <Column field="unit_price" :header="$t('public.unit_price') + ' ($)'" sortable class="whitespace-nowrap">
-                            <template #body="slotProps">
-                                {{ formatAmount(slotProps.data.unit_price) }}
-                            </template>
-                        </Column>
-                        <Column field="amount" :header="$t('public.amount') + ' ($)'" sortable class="whitespace-nowrap">
-                            <template #body="slotProps">
-                                {{ formatAmount(slotProps.data.amount) }}
-                            </template>
-                        </Column>
-                    </DataTable>
-                </div>
-
-                <div class="w-full flex justify-end items-center gap-1">
-                    <span class="text-gray-700 font-bold">{{ $t('public.total_amount') }}:</span>
-                    <span class="text-gray-700 font-bold">$ {{ formatAmount(totalAmount) }}</span>
-                </div>
+            <div class="flex justify-end gap-2 pt-4">
+                <Button severity="secondary" @click="closeDialog" class="w-full md:w-[120px]">
+                    {{ $t('public.cancel') }}
+                </Button>
+                <Button @click="saveEditDialog" class="w-full md:w-[120px]">
+                    {{ $t('public.save') }}
+                </Button>
             </div>
-
         </div>
-    </Dialog> -->
+
+    </Dialog>
 
 </template>

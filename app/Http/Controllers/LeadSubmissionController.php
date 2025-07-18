@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use App\Jobs\ProcessCoreLeadImport;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Validator;
 
 class LeadSubmissionController extends Controller
 {
@@ -74,16 +75,27 @@ class LeadSubmissionController extends Controller
                     
             // Export logic
             if ($request->has('exportStatus') && $request->exportStatus) {
+                $validator = Validator::make($request->all(), [
+                    'status' => ['required'],
+                ])->setAttributeNames([
+                    'status' => trans('public.status'),
+                ]);
+            
+                $validator->validate();
+        
                 // Check if there are selected core_lead for export
                 $selectedIds = $request->input('selected_ids', default: []);
+                $status = $request->input('status');
 
                 if (!empty($selectedIds)) {
-                    // If selected core_lead are provided, filter by selected IDs
-                    $coreLeads = $query->whereIn('id', $selectedIds)->get();
-                } else {
-                    // Otherwise, fetch all core_lead
-                    $coreLeads = $query->get();
+                    $query->whereIn('id', $selectedIds);
                 }
+            
+                if($status) {
+                    $query->update(['status' => $status]);
+                }
+
+                $coreLeads = $query->get();
 
                 return Excel::download(new CoreLeadExport($coreLeads), now() . '-lead-report.xlsx');
             }
@@ -173,6 +185,28 @@ class LeadSubmissionController extends Controller
         ]);
     }
 
+    public function updateStatus(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ids'    => ['required', 'array', 'min:1'],
+            'ids.*'  => ['integer', 'exists:core_leads,id'],
+            'status' => ['required'],
+            // 'status' => ['required', 'in:pending,approved,rejected'],
+        ])->setAttributeNames([
+            'ids'    => trans('public.selected_leads'),
+            'status' => trans('public.status'),
+        ]);
+    
+        $validator->validate();
+    
+        CoreLead::whereIn('id', $request->ids)->update(['status' => $request->status]);
+    
+        return back()->with('toast', [
+            'title' => 'Status updated successfully!',
+            'type'  => 'success',
+        ]);
+    }
+    
     public function deleteLead(Request $request)
     {
         $request->validate([

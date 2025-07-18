@@ -11,17 +11,15 @@ defineProps({
     <label
         class="block font-medium text-xs"
         :class="{
-            'text-surface-700 dark:text-surface-300': !invalid,
+            'text-gray-700': !invalid,
             'text-red-500': invalid
         }"
     >
-        <span v-if="value">
-            {{ value }}<span class="text-red-500 text-sm font-medium"> *</span>
-        </span>
+        <div v-if="value">
+            {{ value }}<span class="text-red-500 text-xs font-medium"> *</span>
+        </div>
         <div v-else>
-            <div class="mb-0.5">
-                <slot />
-            </div>
+            <slot />
         </div>
     </label>
 </template>

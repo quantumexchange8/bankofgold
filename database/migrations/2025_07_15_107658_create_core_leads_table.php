@@ -25,7 +25,8 @@ return new class extends Migration {
             $table->string('telephone')->nullable();
             $table->string('country')->nullable();
 
-            // Duplicate & import tracking
+            // Status and duplicate tracking
+            $table->string('status')->nullable()->default('new');
             $table->boolean('is_duplicate')->default(false);
 
             $table->timestamps();

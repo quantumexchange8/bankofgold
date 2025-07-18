@@ -1,5 +1,7 @@
 <?php
 return [
+    "cancel" => "Cancel",
+    "save" => "Save",
     "paginator_caption" => "Showing {first} to {last} of {totalRecords} entries",
     "keyword_search" => "Keyword Search",
     "filter" => "Filter",
@@ -10,6 +12,7 @@ return [
     "name" => "Name",
     "email" => "Email",
     "date" => "Date",
+    "status" => "Status",
     "telephone" => "Telephone",
     "country" => "Country",
     "categories" => "Categories",
@@ -36,5 +39,7 @@ return [
     "duplicate_items" => "Duplicate Items",
     "filter_field" => "Filter by Field",
     "select_field" => "Select Field",
+    "update_status" => "Update Status",
+    "select_status" => "Select Status",
 
 ];
