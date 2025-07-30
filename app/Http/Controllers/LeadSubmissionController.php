@@ -44,9 +44,7 @@ class LeadSubmissionController extends Controller
                 $query->where(function ($query) use ($search) {
                     $query->where('lead_id', 'like', '%' . $search . '%')
                     ->orWhere('first_name', 'like', '%' . $search . '%')
-                    ->orWhere('surname', 'like', '%' . $search . '%')
-                    ->orWhere('email', 'like', '%' . $search . '%')
-                    ->orWhere('telephone', 'like', '%' . $search . '%');
+                    ->orWhere('surname', 'like', '%' . $search . '%');
                 });
             }
 
@@ -57,7 +55,7 @@ class LeadSubmissionController extends Controller
                 $start_date = Carbon::parse($startDate)->startOfDay();
                 $end_date = Carbon::parse($endDate)->endOfDay();
     
-                $query->whereBetween('date_added', [$start_date, $end_date]);
+                $query->whereBetween('created_at', [$start_date, $end_date]);
             } else {
                 $query->whereDate('created_at', '>=', '2020-01-01');
             }
