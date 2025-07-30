@@ -4,20 +4,47 @@ namespace App\Imports;
 
 use Carbon\Carbon;
 use App\Models\CoreLead;
-use App\Models\DuplicateRecord;
+use Illuminate\Support\Str;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Imports\HeadingRowFormatter;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
-use Illuminate\Support\Facades\Log;
 
-class CoreLeadImport implements ToCollection, WithHeadingRow, WithChunkReading
+class CoreLeadImport implements ToCollection, WithHeadingRow, WithChunkReading, WithBatchInserts
 {
     protected int $importId;
     protected int $userId;
     protected int $totalRows = 0;
+
+    private array $dateColumns = [
+        'date_added',
+        'date_logged',
+        'date_last_modified',
+        'dob',
+        'license_start_date',
+        'license_expiry_date',
+        'last_contact_date',
+        'last_transaction_date',
+        'tq_date',
+        'verify_date',
+    ];
+
+    private array $timeColumns = [
+        'verified_time',
+    ];
+
+    private array $booleanColumns = [
+        'cryptocurrency_market',
+        'broker_local',
+        'broker_international',
+        'decision_maker',
+        'is_duplicate',
+    ];
 
     public function __construct(int $importId, int $userId)
     {
@@ -25,14 +52,19 @@ class CoreLeadImport implements ToCollection, WithHeadingRow, WithChunkReading
         $this->userId = $userId;
     }
 
-    public function getTotalRowCount(): int
-    {
-        return $this->totalRows;
-    }
-
     public function chunkSize(): int
     {
         return 500;
+    }
+
+    public function batchSize(): int
+    {
+        return 100;
+    }
+
+    public function getTotalRowCount(): int
+    {
+        return $this->totalRows;
     }
 
     protected function normalizeExcelDate($value): ?string
@@ -48,48 +80,61 @@ class CoreLeadImport implements ToCollection, WithHeadingRow, WithChunkReading
         }
     }
 
+    protected function normalizeExcelTime($value): ?string
+    {
+        if (blank($value)) return null;
+
+        try {
+            return is_numeric($value)
+                ? Carbon::instance(ExcelDate::excelToDateTimeObject($value))->toTimeString()
+                : Carbon::parse($value)->toTimeString();
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
     public function collection(Collection $rows): void
     {
-        DB::beginTransaction();
+        $insertData = [];
     
-        try {
-            $this->totalRows += $rows->count();
-            $now = now();
-            $rowsArray = $rows->toArray();
-    
-            $insertData = [];
-    
-            foreach ($rowsArray as $row) {
-                $insertData[] = [
-                    'user_id'      => $this->userId,
-                    'import_id'    => $this->importId,
-                    'lead_id'      => $row['lead_id'] ?? null,
-                    'categories'   => $row['categories'] ?? null,
-                    'date_added'   => $this->normalizeExcelDate($row['date_added'] ?? null),
-                    'referrer'     => $row['referrer'] ?? null,
-                    'first_name'   => $row['first_name'] ?? null,
-                    'surname'      => $row['surname'] ?? null,
-                    'email'        => $row['email'] ?? null,
-                    'telephone'    => $row['telephone'] ?? null,
-                    'country'      => $row['country'] ?? null,
-                    'is_duplicate' => false,
-                    'created_at'   => $now,
-                    'updated_at'   => $now,
-                ];
+        foreach ($rows as $row) {
+            if (method_exists($row, 'toArray')) {
+                $row = $row->toArray();
+            } elseif ($row instanceof \ArrayAccess || is_object($row)) {
+                $row = json_decode(json_encode($row), true);
             }
     
-            DB::table('core_leads')->insert($insertData);
+            // Ensure all keys are valid strings
+            $cleaned = [];
+            foreach ($row as $key => $value) {
+                if (is_scalar($key)) {
+                    $cleaned[(string) $key] = $value;
+                }
+            }
     
-            DB::commit();
-        } catch (\Throwable $e) {
-            DB::rollBack();
-    
-            Log::error('[CoreLeadImport] Insert failed', [
+            $lead = [
                 'import_id' => $this->importId,
-                'error'     => $e->getMessage(),
-            ]);
-                
-            throw $e;
+                'user_id' => $this->userId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+    
+            foreach ($cleaned as $column => $value) {
+                if (in_array($column, $this->dateColumns, true)) {
+                    $lead[$column] = $this->normalizeExcelDate($value);
+                } elseif (in_array($column, $this->timeColumns, true)) {
+                    $lead[$column] = $this->normalizeExcelTime($value);
+                } elseif (in_array($column, $this->booleanColumns, true)) {
+                    $lead[$column] = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                } else {
+                    $lead[$column] = $value;
+                }
+            }
+    
+            $insertData[] = $lead;
         }
+    
+        CoreLead::insert($insertData);
+        $this->totalRows += count($insertData);
     }
 }

@@ -13,7 +13,6 @@ class CoreLead extends Model
 
     protected $casts = [
         'is_duplicate' => 'boolean',
-        'date_added' => 'date',
     ];
 
     public function user()

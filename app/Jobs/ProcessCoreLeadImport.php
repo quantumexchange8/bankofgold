@@ -49,8 +49,8 @@ class ProcessCoreLeadImport implements ShouldQueue
             $import = new CoreLeadImport($this->importId, $importRecord->user_id);
             Excel::import($import, $this->filePath, null, $format);
 
-            $this->handlePostImportDuplicateDetection();
-            $this->markDuplicatesInCoreLeads();
+            // $this->handlePostImportDuplicateDetection();
+            // $this->markDuplicatesInCoreLeads();
 
             $duplicateCount = CoreLead::where('import_id', $this->importId)->where('is_duplicate', true)->count();
         
