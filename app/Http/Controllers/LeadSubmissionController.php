@@ -197,7 +197,7 @@ class LeadSubmissionController extends Controller
     
         $validator->validate();
     
-        CoreLead::whereIn('id', $request->ids)->update(['lead_status' => $request->status]);
+        CoreLead::whereIn('id', $request->ids)->update(['status' => $request->status]);
     
         return back()->with('toast', [
             'title' => 'Status updated successfully!',

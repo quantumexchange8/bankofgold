@@ -22,6 +22,7 @@ return new class extends Migration {
             $table->string('referrer')->nullable();
             $table->string('modified_by')->nullable();
             $table->string('lead_status')->nullable();
+            $table->string('status')->nullable()->default('new');
             $table->boolean('is_duplicate')->nullable()->default(false);
 
             // Personal Information

@@ -313,19 +313,9 @@ const onRowEditCancel = (event) => {
 };
 
 const statusOptions = [
-    { label: "fresh", value: "fresh" },
-    { label: "raw_data", value: "raw_data" },
-    { label: "thanked_qualified", value: "thanked_qualified" },
-    { label: "contact_made", value: "contact_made" },
-    { label: "not_interested", value: "not_interested" },
-    { label: "wrong_number", value: "wrong_number" },
-    { label: "wrong_name", value: "wrong_name" },
-    { label: "disconnect_number", value: "disconnect_number" },
-    { label: "dnc", value: "dnc" },
-    { label: "keep_on_list", value: "keep_on_list" },
-    { label: "email_only", value: "email_only" },
-    { label: "deal", value: "deal" },
-    { label: "heat", value: "heat" },
+    { label: 'new', value: 'new' },
+    { label: 'assigned', value: 'assigned' },
+    { label: 'completed', value: 'completed' },
 ];
 
 // dialog
