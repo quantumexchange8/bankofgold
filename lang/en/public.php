@@ -41,5 +41,17 @@ return [
     "select_field" => "Select Field",
     "update_status" => "Update Status",
     "select_status" => "Select Status",
-
+    "fresh" => "fresh",
+    "raw_data" => "raw_data",
+    "thanked_qualified" => "thanked_qualified",
+    "contact_made" => "contact_made",
+    "not_interested" => "not_interested",
+    "wrong_number" => "wrong_number",
+    "wrong_name" => "wrong_name",
+    "disconnect_number" => "disconnect_number",
+    "dnc" => "dnc",
+    "keep_on_list" => "keep_on_list",
+    "email_only" => "email_only",
+    "deal" => "deal",
+    "heat" => "heat",
 ];
