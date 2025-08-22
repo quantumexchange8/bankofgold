@@ -633,8 +633,11 @@ const fetchDuplicateItems = async (duplicate_id) => {
                         <Column :header="$t('public.duplicate_field')" class="whitespace-nowrap">
                             <template #body="{ data: row }">
                                 {{
-                                    row && data.duplicate_value ?
-                                        $t('public.' + (Object.keys(row).find(key => row[key] === data.duplicate_value) || ''))
+                                    row && data.duplicate_value
+                                        ? Object.keys(row)
+                                            .filter(key => row[key] === data.duplicate_value)
+                                            .map(key => $t('public.' + key))
+                                            .join(', ')
                                         : ''
                                 }}
                             </template>
