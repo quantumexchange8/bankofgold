@@ -54,7 +54,7 @@ class CoreLeadImport implements ToCollection, WithHeadingRow, WithChunkReading, 
 
     public function chunkSize(): int
     {
-        return 500;
+        return 250;
     }
 
     public function batchSize(): int
@@ -107,11 +107,19 @@ class CoreLeadImport implements ToCollection, WithHeadingRow, WithChunkReading, 
             // Ensure all keys are valid strings
             $cleaned = [];
             foreach ($row as $key => $value) {
-                if (is_scalar($key)) {
-                    $cleaned[(string) $key] = $value;
+                if (!is_scalar($key)) {
+                    continue;
                 }
+            
+                $normalizedKey = trim((string) $key);
+            
+                if ($normalizedKey === '') {
+                    continue; // skip blank/empty headers
+                }
+            
+                $cleaned[$normalizedKey] = $value;
             }
-    
+                
             $lead = [
                 'import_id' => $this->importId,
                 'user_id' => $this->userId,

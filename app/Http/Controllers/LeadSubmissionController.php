@@ -41,10 +41,37 @@ class LeadSubmissionController extends Controller
             // Handle search functionality
             $search = $data['filters']['global']['value'];
             if ($search) {
-                $query->where(function ($query) use ($search) {
-                    $query->where('lead_id', 'like', '%' . $search . '%')
-                    ->orWhere('first_name', 'like', '%' . $search . '%')
-                    ->orWhere('surname', 'like', '%' . $search . '%');
+                $query->where(function ($q) use ($search) {
+                    $fields = [
+                        'lead_id',
+                        'first_name',
+                        'middle_name',
+                        'surname',
+                        'registered_full_name',
+                        'referrer',
+                        // 'private_email_1',
+                        // 'private_email_2',
+                        // 'home_telephone_1',
+                        // 'home_telephone_2',
+                        // 'mobile_telephone_1',
+                        // 'mobile_telephone_2',
+                        // 'private_fax',
+                        // 'company_email_1',
+                        // 'company_email_2',
+                        // 'office_phone_1',
+                        // 'office_phone_2',
+                        // 'office_fax',
+                        // 'followup_email',
+                        // 'followup_mobile',
+                    ];
+            
+                    foreach ($fields as $index => $field) {
+                        if ($index === 0) {
+                            $q->where($field, 'like', "%{$search}%");
+                        } else {
+                            $q->orWhere($field, 'like', "%{$search}%");
+                        }
+                    }
                 });
             }
 
@@ -149,7 +176,7 @@ class LeadSubmissionController extends Controller
     public function upload(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,xls,xlsx,ods',
+            'file' => ['required', 'file', 'mimes:csv,xls,xlsx,ods', 'max:2048'], // 2MB max
         ]);
 
         $file = $request->file('file');

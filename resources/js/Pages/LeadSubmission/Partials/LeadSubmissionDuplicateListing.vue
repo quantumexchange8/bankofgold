@@ -44,7 +44,7 @@ const visible = ref(false);
 
 const fieldOptions = [
     { label: 'email', value: 'email' },
-    { label: 'telephone', value: 'telephone' },
+    { label: 'phone', value: 'phone' },
 ];
 
 const filters = ref({
@@ -475,16 +475,19 @@ const fetchDuplicateItems = async (duplicate_id) => {
                                 <div class="flex items-center gap-3">
                                     <div class="flex flex-col items-start">
                                         <div class="flex flex-wrap items-start gap-x-2">
-                                            <div class="text-sm font-semibold w-auto capitalize">
-                                                {{ `${$t('public.field')}: ${slotProps.data.field_name}` }}
+                                            <div class="text-sm w-auto capitalize">
+                                                {{ $t('public.field') }}: 
+                                                <span class="font-medium">{{ slotProps.data.field_name }}</span>
                                             </div>
-                                            <div class="text-sm font-semibold w-auto">
-                                                {{ `${$t('public.value')}: ${slotProps.data.duplicate_value}` }}
+                                            <div class="text-sm w-auto">
+                                                {{ $t('public.value') }}: 
+                                                <span class="font-medium">{{ slotProps.data.duplicate_value }}</span>
                                             </div>
                                         </div>
 
-                                        <div class="text-sm font-semibold w-auto">
-                                            {{ `${$t('public.count')}: ${slotProps.data.count}` }}
+                                        <div class="text-sm w-auto">
+                                            {{ $t('public.count') }}: 
+                                            <span class="font-medium">{{ slotProps.data.count }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -555,7 +558,7 @@ const fetchDuplicateItems = async (duplicate_id) => {
         v-model:visible="visible"
         modal
         :header="$t('public.duplicate_items')"
-        class="dialog-xs md:dialog-lg lg:w-auto"
+        class="dialog-xs md:dialog-lg"
     >
         <div class="w-full flex flex-col gap-5">
             <div class="flex flex-col items-center gap-2 self-stretch">
@@ -604,36 +607,39 @@ const fetchDuplicateItems = async (duplicate_id) => {
                                 {{ slotProps.index + 1 }}
                             </template>
                         </Column>
-                        <Column
-                            field="date_added"
-                            sortable
-                            :header="`${$t('public.date_added')}`"
-                            class="whitespace-nowrap"
-                        >
+                        <Column field="date_added" sortable :header="`${$t('public.date_added')}`" class="whitespace-nowrap">
                             <template #body="slotProps">
                                 {{ dayjs(slotProps.data.date_added).format('YYYY/MM/DD') }}
                             </template>
                         </Column>
                         <Column field="lead_id" :header="$t('public.lead_id')" class="whitespace-nowrap"/>
                         <Column field="categories" :header="$t('public.categories')" class="whitespace-nowrap"/>
-                        <Column
-                            field="first_name"
-                            sortable
-                            :header="$t('public.name')"
-                            class="whitespace-nowrap"
-                        >
+                        <Column field="first_name" sortable :header="$t('public.name')" class="hidden md:table-cell">
                             <template #body="{data}">
                                 <div class="flex items-center gap-3 max-w-60">
                                     <div class="flex flex-col items-start truncate">
-                                        {{ `${data.first_name} ${data.surname}` }}
+                                        <div class="font-medium">
+                                            {{ `${data.first_name} ${data.middle_name} ${data.surname}` }}
+                                        </div>
+                                        <div class="text-surface-500 text-sm max-w-48 truncate">
+                                            {{ data.registered_full_name }}
+                                        </div>
                                     </div>
                                 </div>
                             </template>
                         </Column>
-                        <Column field="email" :header="$t('public.email')" class="whitespace-nowrap"/>
-                        <Column field="telephone" :header="$t('public.telephone')" class="whitespace-nowrap"/>
-                        <Column field="country" :header="$t('public.country')" class="whitespace-nowrap"/>
                         <Column field="referrer" :header="$t('public.referrer')" class="whitespace-nowrap"/>
+                        <Column field="lead_status" :header="$t('public.lead_status')" sortable class="whitespace-nowrap" />
+                        <Column :header="$t('public.duplicate_field')" class="whitespace-nowrap">
+                            <template #body="{ data: row }">
+                                {{
+                                    row && data.duplicate_value ?
+                                        $t('public.' + (Object.keys(row).find(key => row[key] === data.duplicate_value) || ''))
+                                        : ''
+                                }}
+                            </template>
+                        </Column>
+
                     </DataTable>
                 </div>
             </div>

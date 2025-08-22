@@ -284,17 +284,27 @@ const onRowEditInit = (event) => {
 
 const onRowEditSave = async (event) => {
     const updatedRow = { ...event.newData };
+    const originalRow = event.data._original || {};
     delete updatedRow._original;
+
+    // Normalize status
+    const statusValue = typeof updatedRow.status === 'object' ? updatedRow.status.value : updatedRow.status;
+    const originalStatus = typeof originalRow.status === 'object' ? originalRow.status.value : originalRow.status;
+
+    // ✅ Only update if value actually changed
+    if (statusValue === originalStatus) {
+        return; // no change, do nothing
+    }
 
     // Update local table data
     const index = files.value.findIndex(file => file.id === updatedRow.id);
     if (index !== -1) {
-        files.value[index].status = updatedRow.status.value;
+        files.value[index].status = statusValue;
     }
 
     // Submit to backend using shared useForm
     form.ids = [updatedRow.id];
-    form.status = updatedRow.status.value;
+    form.status = statusValue;
 
     form.post(route('lead_submission.updateStatus'), {
         preserveScroll: true,
@@ -501,100 +511,47 @@ const saveEditDialog = () => {
                             {{ dayjs(slotProps.data.created_at).format('YYYY/MM/DD') }}
                         </template>
                     </Column> -->
-                    <Column
-                        field="date_added"
-                        sortable
-                        :header="`${$t('public.date_added')}`"
-                        class="hidden md:table-cell"
-                    >
+                    <Column field="date_added" sortable :header="`${$t('public.date_added')}`" headerClass="whitespace-nowrap" class="hidden md:table-cell">
                         <template #body="slotProps">
                             {{ dayjs(slotProps.data.date_added).format('YYYY/MM/DD') }}
                         </template>
                     </Column>
-                    <Column
-                        field="lead_id"
-                        sortable
-                        :header="`${$t('public.lead_id')}`"
-                        class="hidden md:table-cell"
-                    >
-                        <template #body="slotProps">
-                            {{ slotProps.data.lead_id }}
-                        </template>
-                    </Column>
-                    <Column
-                        field="categories"
-                        sortable
-                        :header="`${$t('public.categories')}`"
-                        class="hidden md:table-cell"
-                    >
-                        <template #body="slotProps">
-                            {{ slotProps.data.categories }}
-                        </template>
-                    </Column>
-                    <Column
-                        field="first_name"
-                        sortable
-                        :header="$t('public.name')"
-                        class="hidden md:table-cell"
-                    >
+                    <Column field="lead_id" sortable :header="`${$t('public.lead_id')}`" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="categories" sortable :header="`${$t('public.categories')}`" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="first_name" sortable :header="$t('public.name')" headerClass="whitespace-nowrap" class="hidden md:table-cell">
                         <template #body="{data}">
                             <div class="flex items-center gap-3 max-w-60">
                                 <div class="flex flex-col items-start truncate">
                                     <div class="font-medium">
-                                        {{ `${data.first_name} ${data.surname}` }}
+                                        {{ `${data.first_name} ${data.middle_name} ${data.surname}` }}
                                     </div>
-                                    <!-- <div class="text-surface-500 text-xs max-w-48 truncate">
-                                        {{ data.email }}
-                                    </div> -->
+                                    <div class="text-surface-500 text-sm max-w-48 truncate">
+                                        {{ data.registered_full_name }}
+                                    </div>
                                 </div>
                             </div>
                         </template>
                     </Column>
-                    <Column
-                        field="email"
-                        sortable
-                        :header="`${$t('public.email')}`"
-                        class="hidden md:table-cell"
-                    >
-                        <template #body="slotProps">
-                            {{ slotProps.data.email }}
-                        </template>
-                    </Column>
-                    <Column
-                        field="telephone"
-                        sortable
-                        :header="`${$t('public.telephone')}`"
-                        class="hidden md:table-cell"
-                    >
-                        <template #body="slotProps">
-                            {{ slotProps.data.telephone }}
-                        </template>
-                    </Column>
-                    <Column
-                        field="country"
-                        sortable
-                        :header="`${$t('public.country')}`"
-                        class="hidden md:table-cell"
-                    >
-                        <template #body="slotProps">
-                            {{ slotProps.data.country }}
-                        </template>
-                    </Column>
-                    <Column
-                        field="referrer"
-                        sortable
-                        :header="`${$t('public.referrer')}`"
-                        class="hidden md:table-cell"
-                    >
-                        <template #body="slotProps">
-                            {{ slotProps.data.referrer }}
-                        </template>
-                    </Column>
-                    <Column
-                        field="status"
-                        :header="$t('public.status')"
-                        class="hidden md:table-cell"
-                    >
+                    <Column field="referrer" :header="$t('public.referrer')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="private_email_1" :header="$t('public.private_email_1')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="private_email_2" :header="$t('public.private_email_2')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="home_telephone_1" :header="$t('public.home_telephone_1')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="home_telephone_2" :header="$t('public.home_telephone_2')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="mobile_telephone_1" :header="$t('public.mobile_telephone_1')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="mobile_telephone_2" :header="$t('public.mobile_telephone_2')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="private_fax" :header="$t('public.private_fax')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="occupation" :header="$t('public.occupation')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="company_name" :header="$t('public.company_name')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="nature_of_business" :header="$t('public.nature_of_business')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="company_email_1" :header="$t('public.company_email_1')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="company_email_2" :header="$t('public.company_email_2')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="office_phone_1" :header="$t('public.office_phone_1')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="office_phone_2" :header="$t('public.office_phone_2')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="office_fax" :header="$t('public.office_fax')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="followup_email" :header="$t('public.followup_email')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="followup_mobile" :header="$t('public.followup_mobile')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="lead_status" :header="$t('public.lead_status')" headerClass="whitespace-nowrap" class="hidden md:table-cell" />
+                    <Column field="status" :header="$t('public.status')" headerClass="whitespace-nowrap" class="hidden md:table-cell">
                         <template #body="{ data }">
                             {{ $t(`public.${data.status}`) }}
                         </template>
@@ -632,39 +589,28 @@ const saveEditDialog = () => {
                     <Column class="md:hidden">
                         <template #body="slotProps">
                             <div class="flex items-center justify-between gap-1">
-                                <div class="flex items-center gap-3">
-                                    <div class="flex flex-col items-start">
-                                        <div class="flex flex-wrap items-start gap-x-2">
-                                            <div class="text-sm font-semibold w-auto">
-                                                {{ slotProps.data.lead_id }}
-                                            </div>
-                                            <div class="text-sm font-semibold w-auto">
-                                                {{ slotProps.data.email }}
-                                            </div>
-                                            <div class="text-sm font-semibold w-auto">
-                                                {{ slotProps.data.telephone }}
-                                            </div>
+                                <div class="w-full flex flex-wrap items-center justify-between gap-x-2">
+                                    <div class="flex flex-col items-start gap-1">
+                                        <div class="text-sm font-semibold w-auto">
+                                            {{ slotProps.data.lead_id }}
                                         </div>
-
-                                        <!-- <div class="text-gray-500 text-xs">
-                                            {{ `${$t('public.date')}: ${dayjs(slotProps.data.created_at).format('YYYY/MM/DD')}` }}
-                                        </div> -->
                                         <div class="text-gray-500 text-xs">
                                             {{ `${$t('public.date_added')}: ${dayjs(slotProps.data.date_added).format('YYYY/MM/DD')}` }}
                                         </div>
-                                        <Button
-                                            type="button"
-                                            severity="secondary"
-                                            variant="text"
-                                            rounded
-                                            size="small"
-                                            class="shrink-0"
-                                            @click="openDialog(slotProps.data, 'update')"
-                                        >
-                                            <IconAdjustmentsHorizontal size="16" stroke-width="1.25"/>
-                                        </Button>
-
                                     </div>
+
+                                    <Button
+                                        type="button"
+                                        severity="secondary"
+                                        variant="text"
+                                        rounded
+                                        size="small"
+                                        class="shrink-0"
+                                        @click="openDialog(slotProps.data, 'update')"
+                                    >
+                                        <IconAdjustmentsHorizontal size="16" stroke-width="1.25"/>
+                                    </Button>
+
                                 </div>
                             </div>
                         </template>

@@ -1,34 +1,36 @@
 <script setup>
-import { router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { useForm } from '@inertiajs/vue3'
+import { ref } from 'vue'
+import InputError from '@/Components/InputError.vue';
 
-const fileInput = ref(null);
-const selectedFileName = ref(null);
+const fileInput = ref(null)
+const selectedFileName = ref(null)
+
+const form = useForm({
+    file: null, // will be filled by user
+})
 
 const triggerFileInput = () => {
-    fileInput.value?.click();
-};
+    fileInput.value?.click()
+}
 
 const handleFileUpload = (event) => {
-    const target = event.target;
-    const file = target.files?.[0];
-    if (!file) return;
+    const file = event.target.files?.[0]
+    if (!file) return
 
-    selectedFileName.value = file.name;
+    form.file = file
+    selectedFileName.value = file.name
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    router.post(route('lead_submission.upload'), formData, {
+    form.post(route('lead_submission.upload'), {
         preserveScroll: true,
+        forceFormData: true, // 👈 important for file upload
         onSuccess: () => {
-            // console.log('File uploaded!');
+            form.reset()
+            // selectedFileName.value = null
+            // fileInput.value.value = null // 👈 reset file input
         },
-        onError: (errors) => {
-            console.error(errors);
-        },
-    });
-};
+    })
+}
 </script>
 
 <template>
@@ -60,5 +62,8 @@ const handleFileUpload = (event) => {
         <span class="text-sm text-gray-600 dark:text-gray-400">
             {{ $t('public.selected_file') }}: <span class="font-medium">{{ selectedFileName }}</span>
         </span>
+
+        <!-- Server-side validation errors -->
+        <InputError :message="form.errors.file" />
     </div>
 </template>

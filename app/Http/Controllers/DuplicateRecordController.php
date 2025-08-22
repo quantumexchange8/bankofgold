@@ -96,7 +96,11 @@ class DuplicateRecordController extends Controller
                 ->where('duplicate_record_id', $duplicateRecord->id)
                 ->where('related_table', $table)
                 ->pluck('related_record_id');
-    
+
+            // $relatedRecordIds = $duplicateRecord->duplicateLinks()
+            //     ->where('related_table', $table)
+            //     ->pluck('related_record_id');
+
             $records = $model::whereIn('id', $relatedRecordIds)->get();
     
             return response()->json([
